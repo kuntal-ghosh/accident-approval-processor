@@ -1,58 +1,49 @@
-# Accident Approval Processor
+# README.md
 
-This project processes accident reports stored in a database, extracts relevant information, formats it for a language model (LLM), and retrieves approval decisions based on the provided data.
+# Node PostgreSQL App
 
-## Project Structure
+This project is a Node.js application that connects to a PostgreSQL database. It demonstrates how to set up a database connection, manage queries, and structure a Node.js application.
 
-```
-accident-approval-processor
-├── src
-│   ├── index.ts                # Entry point of the application
-│   ├── config
-│   │   ├── database.ts         # Database connection configuration
-│   │   └── llm.ts              # LLM service configuration
-│   ├── types
-│   │   ├── database.ts         # Types and interfaces for database operations
-│   │   └── accident.ts         # Types and interfaces for accident data structure
-│   ├── services
-│   │   ├── databaseService.ts   # Service for handling database operations
-│   │   └── llmService.ts        # Service for interacting with the LLM API
-│   └── utils
-│       ├── dataExtractor.ts     # Utility for extracting data from JSON
-│       └── promptFormatter.ts    # Utility for formatting prompts for the LLM
-├── package.json                 # npm configuration file
-├── tsconfig.json                # TypeScript configuration file
-└── README.md                    # Project documentation
-```
+## Table of Contents
 
-## Setup Instructions
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [License](#license)
 
-1. **Clone the Repository**
-   ```bash
+## Installation
+
+1. Clone the repository:
+   ```
    git clone <repository-url>
-   cd accident-approval-processor
+   cd node-postgres-app
    ```
 
-2. **Install Dependencies**
-   ```bash
+2. Install the dependencies:
+   ```
    npm install
    ```
 
-3. **Configure Database Connection**
-   - Update the `src/config/database.ts` file with your database connection details.
+3. Create a `.env` file based on the `.env.example` template and fill in your database credentials.
 
-4. **Run the Application**
-   ```bash
-   npm start
-   ```
+## Configuration
+
+The database connection settings can be found in `src/config/database.ts`. Update the following properties with your PostgreSQL server details:
+
+- `host`: The hostname of your PostgreSQL server.
+- `port`: The port number (default is 5432).
+- `user`: Your PostgreSQL username.
+- `password`: Your PostgreSQL password.
+- `database`: The name of your database.
 
 ## Usage
 
-The application connects to the specified database, fetches accident reports in JSON format, processes each entry to extract relevant information, formats it for the LLM, and retrieves approval decisions.
+To start the application, run:
+```
+npm start
+```
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
+This will initialize the application and connect to the PostgreSQL database.
 
 ## License
 

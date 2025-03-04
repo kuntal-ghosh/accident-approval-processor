@@ -1,25 +1,13 @@
-import { Pool } from 'pg'; // Importing PostgreSQL client, change as needed for other databases
-import { DatabaseConfig } from '../types/database';
-
-export const config: DatabaseConfig = {
-    host: 'localhost',
-    user: 'developer',
-    password: 'Karnob@711',
-    database: 'driver_db',
+export default {
+    host: 'driver-drspbd-prod.c7zp3bgas4zd.ap-southeast-1.rds.amazonaws.com',
     port: 5432,
-    dialect: 'postgres',
-};
-
-const pool = new Pool(config);
-
-export const connectToDatabase = async () => {
-    try {
-        await pool.connect();
-        console.log('Database connection established successfully.');
-    } catch (error) {
-        console.error('Error connecting to the database:', error);
-        throw error;
+    user: 'driver',
+    password: 'D9r7iv8er4BJ2I0T',
+    database: 'driver',
+    sshConfig: {
+        host: '46.137.254.216',
+        port: 22,
+        username: 'ubuntu',
+        privateKey: './keys/driver.pem'
     }
 };
-
-export const getPool = () => pool;
