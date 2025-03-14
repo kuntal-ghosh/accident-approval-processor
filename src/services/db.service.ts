@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import { createTunnel } from 'tunnel-ssh';
 
+const PORT = 15435;
 class DatabaseService {
     private client: Client | null = null;
     private tunnel: any;
@@ -26,7 +27,7 @@ class DatabaseService {
     private async initializeClient() {
         const forwardOptions = {
             srcAddr: '127.0.0.1',
-            srcPort: 15432,
+            srcPort: PORT,
             dstAddr: this.config.host,
             dstPort: this.config.port
         };
@@ -38,7 +39,7 @@ class DatabaseService {
 
         const serverOptions = {
             host: '127.0.0.1',
-            port: 15432
+            port: PORT
         };
 
         const sshOptions = {
@@ -59,7 +60,7 @@ class DatabaseService {
         // Create PostgreSQL client with tunneled connection
         this.client = new Client({
             host: 'localhost',
-            port: 15432,
+            port: PORT,
             user: this.config.user,
             password: this.config.password,
             database: this.config.database
@@ -92,7 +93,7 @@ class DatabaseService {
     }
 
     public async query(queryString: string, params: any[] = []) {
-        await this.connect();
+        // await this.connect();
         if (this.client) {
             return await this.client.query(queryString, params);
         } else {
