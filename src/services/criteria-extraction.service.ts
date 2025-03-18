@@ -6,6 +6,8 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 // import { ChatCohere } from "@langchain/cohere";
 // import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+
+import {OPENAI_API_KEY} from "../config/key";
 interface AccidentReport {
   rcf_details: Record<string, any>;
   approval_status: "Approved" | "Not Approved"| "NIL" ;
@@ -18,7 +20,7 @@ export class AccidentCriteriaExtractor {
   
   constructor(apiKey: string, chunkSize?: number) {
     this.llm = new ChatOpenAI({ 
-      openAIApiKey: apiKey, 
+      openAIApiKey: OPENAI_API_KEY, 
       temperature: 0,
       modelName: "gpt-4o" 
     });

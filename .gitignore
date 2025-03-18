@@ -41,3 +41,4 @@ coverage/
 # Ignore lock files
 package-lock.json
 yarn.lock
+src/config/key.ts
