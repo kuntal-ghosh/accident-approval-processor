@@ -12,20 +12,20 @@ interface AccidentReport {
 }
 
 export class AccidentCriteriaExtractor {
-  private llm: ChatAnthropic;
+  private llm: ChatOpenAI;
   private embeddings: OpenAIEmbeddings;
   private chunkSize = 2; // Default chunk size
   
   constructor(apiKey: string, chunkSize?: number) {
-    // this.llm = new ChatOpenAI({ 
-    //   openAIApiKey: apiKey, 
-    //   temperature: 0,
-    //   modelName: "gpt-4o-mini" 
-    // });
-    this.llm = new ChatAnthropic({
-      anthropicApiKey: apiKey,
-      modelName:"claude-3-haiku-20240307"
+    this.llm = new ChatOpenAI({ 
+      openAIApiKey: apiKey, 
+      temperature: 0,
+      modelName: "gpt-4o" 
     });
+    // this.llm = new ChatAnthropic({
+    //   anthropicApiKey: apiKey,
+    //   modelName:"claude-3-haiku-20240307"
+    // });
     this.embeddings = new OpenAIEmbeddings({ openAIApiKey: apiKey });
     
     if (chunkSize) {
@@ -157,6 +157,7 @@ export class AccidentCriteriaExtractor {
       const chunkResult = await this.processChunk(approvedChunk, notApprovedChunk);
       criteriaResults.push(chunkResult);
     }
+      console.log("🚀 ~ AccidentCriteriaExtractor ~ extractCriteria ~ criteriaResults:", criteriaResults)
     
     // Summarize all the criteria
     const finalSummary = await this.summarizeCriteria(criteriaResults);

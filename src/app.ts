@@ -12,7 +12,7 @@ const app = express();
 const port = process.env.PORT || 3005;
 app.use(express.json());
 
-const apiKey = process.env.CLAUDE_API_KEY;
+const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     throw new Error("OPENAI_API_KEY not found in environment variables");
 }
@@ -53,7 +53,7 @@ app.get('/extract-criteria', async (req: Request, res: Response) => {
         const criteriaExtractor = new AccidentCriteriaExtractor(apiKey);
         const criteria = await criteriaExtractor.extractCriteria(formattedRecords);
 
-        await saveToFile("./data/extracted-criteria.json", { criteria });
+        // await saveToFile("./data/extracted-criteria.json", { criteria });
 
         res.status(200).send(criteria);
     } catch (error) {
@@ -98,7 +98,7 @@ app.get('/api/last-rejected', async (_req: Request, res: Response) => {
                 AND data->'driverRCFAPPROVE' IS NOT NULL
                 AND data->'driverRCFAPPROVE' != 'null'::jsonb
                 AND data->'driverRCFAPPROVE' != '[null]'::jsonb
-                AND (data->'driverRCFAPPROVE'->'APPROVE REPORT?') @>'Not Approve'
+                AND (data->'driverRCFAPPROVE'->'APPROVE REPORT?') @>'"Not Approve"'
 
             ORDER BY created DESC
             LIMIT 1;
