@@ -8,7 +8,7 @@ import { ChatAnthropic } from "@langchain/anthropic";
 // import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 interface AccidentReport {
   rcf_details: Record<string, any>;
-  approval_status: string[];
+  approval_status: "Approved" | "Not Approved"| "NIL" ;
 }
 
 export class AccidentCriteriaExtractor {

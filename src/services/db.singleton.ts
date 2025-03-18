@@ -1,5 +1,6 @@
 import DatabaseService from './db.service';
 import database from '../config/database';
+import { dbManager } from '../database/connectionManager';
 
 class DatabaseSingleton {
   private static instance: DatabaseService | null = null;
@@ -8,7 +9,9 @@ class DatabaseSingleton {
     if (!this.instance) {
       this.instance = new DatabaseService(database);
       await this.instance.connect();
-      console.log('Database connection established');
+     const poolName= dbManager.getPool('primary');
+
+      console.log('Database connection established for pool:', poolName);
     }
     return this.instance;
   }

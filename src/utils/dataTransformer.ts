@@ -7,19 +7,29 @@ import { AccidentReport } from '../models';
  */
 export function transformAccidentReports(records: any[]): AccidentReport[] {
   return records.map(record => {
+        // Parse approval_status if it's a string representation of an array
+        let approvalStatusArray = record.approval_status;
+    
+        // Convert string representation of array to actual array
+        if (typeof record.approval_status === 'string') {
+          try {
+            approvalStatusArray = JSON.parse(record.approval_status);
+          } catch (error) {
+            // If parsing fails, keep it as is
+            console.error(`Failed to parse approval_status: ${record.approval_status}`);
+            approvalStatusArray = record.approval_status;
+          }
+        }
     // Parse approval_status if it's a string
-    let approvalStatus: string[];
-    if (typeof record.approval_status === 'string') {
-      try {
-        approvalStatus = JSON.parse(record.approval_status);
-      } catch (e) {
-        // If parsing fails, use the string as a single item array
-        approvalStatus = [record.approval_status];
-      }
-    } else if (Array.isArray(record.approval_status)) {
-      approvalStatus = record.approval_status;
-    } else {
-      approvalStatus = [];
+    let approvalStatus: "Approved" | "Not Approved" | "NIL" | "Pending";
+     if (Array.isArray(approvalStatusArray) && approvalStatusArray.includes('Approve')) {
+      approvalStatus = "Approved";
+    }
+    else if (Array.isArray(approvalStatusArray) && approvalStatusArray.includes('Not Approve')) {
+      approvalStatus = "Not Approved";
+    }
+    else {
+      approvalStatus = "NIL";
     }
 
     // Check if location sketch exists
@@ -34,6 +44,8 @@ export function transformAccidentReports(records: any[]): AccidentReport[] {
 
     // Return the properly formatted object
     return {
+      uuid: record.uuid, 
+      created: record.created,
       rcf_details: rcfDetailsCopy,
       approval_status: approvalStatus,
       hasLocationSketch: hasLocationSketch
