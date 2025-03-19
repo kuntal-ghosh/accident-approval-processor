@@ -7,10 +7,39 @@ import { AccidentCriteriaExtractor } from './services/criteria-extraction.servic
 import DatabaseSingleton from './services/db.singleton';
 import { dbManager } from './database/connectionManager';
 import { criteriaVersionService } from './services/criteriaVersion.service';
-
 import OpenAI from 'openai'; // Make sure to install: npm install openai
 
 
+// Define error types and codes
+enum ErrorCode {
+    INVALID_REQUEST = 'INVALID_REQUEST',
+    NOT_FOUND = 'NOT_FOUND',
+    CRITERIA_NOT_FOUND = 'CRITERIA_NOT_FOUND',
+    REPORT_NOT_FOUND = 'REPORT_NOT_FOUND',
+    UNAUTHORIZED = 'UNAUTHORIZED',
+    FORBIDDEN = 'FORBIDDEN',
+    INTERNAL_ERROR = 'INTERNAL_ERROR',
+    DATABASE_ERROR = 'DATABASE_ERROR',
+    VALIDATION_ERROR = 'VALIDATION_ERROR',
+    AI_SERVICE_ERROR = 'AI_SERVICE_ERROR'
+  }
+  
+// Create an error response function
+function createErrorResponse(
+    code: ErrorCode, 
+    message: string, 
+    details?: any, 
+  ) {
+    return {
+      success: false,
+      error: {
+        code,
+        message,
+        details: details || undefined,
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
 dotenv.config();
 
 const app = express();
@@ -241,14 +270,49 @@ app.post('/api/criteria', async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Error saving criteria:', error);
-        res.status(500).json({
-            status: 'error',
-            message: 'Internal Server Error',
-            error: (error as Error).message
-        });
+        res.status(500).json(createErrorResponse(
+            ErrorCode.INTERNAL_ERROR,
+            'Failed to save criteria',
+            (error as Error).message
+        ));
     }
 });
 
+/**
+ * @api {get} /api/criteria Get All Criteria
+ * @apiName GetAllCriteria
+ * @apiGroup Criteria
+ * @apiDescription Retrieves all criteria versions from the database.
+ * 
+ * @apiSuccess {Boolean} success Operation status
+ * @apiSuccess {Object} data Contains array of criteria versions
+ * @apiSuccess {Object} metadata Request metadata including count and timestamp
+ * 
+ * @apiError {String} message Error message
+ */
+app.get('/api/criteria', async (_req: Request, res: Response) => {
+    try {
+        const query = `
+            SELECT * FROM criteria.criteria_versions
+        `;
+        const result = await  dbManager.executeQuery("primary",query);
+        res.status(200).json({
+            success: true,
+            data: result.rows,
+            metadata: {
+            retrievedAt: new Date(),
+            count: result.rows.length
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching criteria versions:', error);
+        res.status(500).json(createErrorResponse(
+            ErrorCode.DATABASE_ERROR,
+            'Failed to fetch criteria versions',
+            (error as Error).message
+        ));
+    }
+});
 /**
  * @api {get} /api/criteria/active Get Active Criteria
  * @apiName GetActiveCriteria
@@ -280,6 +344,51 @@ app.get('/api/criteria/active', async (_req: Request, res: Response) => {
         });
     }
 });
+
+app.get('/api/criteria/:id', async (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+             res.status(400).json({ message: 'Invalid criteria version ID' });
+             return;
+        }
+        
+        /**
+         * Retrieves a specific criteria version from the database.
+         * 
+         * @param {number} id - The unique identifier of the criteria version to retrieve.
+         * @returns {Promise<CriteriaVersion>} A promise that resolves to the criteria version object.
+         * @throws {Error} If the query fails or the criteria version is not found.
+         */
+        const query = `
+            SELECT * FROM criteria.criteria_versions
+            WHERE id = $1
+        `;
+        const result = await dbManager.executeQuery('primary', query, [id]);
+        if (result.rows.length === 0) {
+             res.status(404).json({ message: 'Criteria version not found' });
+             return;
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: result.rows[0],
+            metadata: {
+            retrievedAt: new Date(),
+            version: result.rows[0].version
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching criteria version:', error);
+        res.status(500).json(createErrorResponse(
+            ErrorCode.DATABASE_ERROR,
+            'Failed to fetch criteria version',
+            (error as Error).message
+        ));
+    }
+});
+
+
 
 /**
  * @api {get} /api/criteria/versions Get All Criteria Versions
