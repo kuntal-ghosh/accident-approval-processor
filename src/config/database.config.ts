@@ -24,9 +24,9 @@ export const databasesConfig: DatabasesConfig = {
     password: process.env.PRIMARY_DB_PASSWORD || 'password',
     database: process.env.PRIMARY_DB_NAME || 'primary_db',
     ssl: process.env.PRIMARY_DB_SSL === 'true',
-    max: parseInt(process.env.PRIMARY_DB_POOL_SIZE || '20', 10),
-    connectionTimeoutMillis: 30000,
-    idleTimeoutMillis: 30000,
+    // max: parseInt(process.env.PRIMARY_DB_POOL_SIZE || '20', 10),
+    // connectionTimeoutMillis: 30000,
+    // idleTimeoutMillis: 30000,
   },
   secondary: {
     host: process.env.SECONDARY_DB_HOST || 'localhost',

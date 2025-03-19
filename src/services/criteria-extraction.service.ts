@@ -14,7 +14,7 @@ interface AccidentReport {
 export class AccidentCriteriaExtractor {
   private llm: ChatOpenAI;
   private embeddings: OpenAIEmbeddings;
-  private chunkSize = 2; // Default chunk size
+  private chunkSize = 10; // Default chunk size
   
   constructor(apiKey: string, chunkSize?: number) {
     this.llm = new ChatOpenAI({ 
@@ -161,6 +161,7 @@ export class AccidentCriteriaExtractor {
     
     // Summarize all the criteria
     const finalSummary = await this.summarizeCriteria(criteriaResults);
+    console.log("🚀 ~ AccidentCriteriaExtractor ~ extractCriteria ~ finalSummary:", finalSummary)
     
     return finalSummary;
   }

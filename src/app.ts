@@ -6,7 +6,6 @@ import { transformAccidentReports } from './utils/dataTransformer';
 import { AccidentCriteriaExtractor } from './services/criteria-extraction.service';
 import DatabaseSingleton from './services/db.singleton';
 import { dbManager } from './database/connectionManager';
-import { userService } from './services/userService';
 import { criteriaVersionService } from './services/criteriaVersion.service';
 
 import OpenAI from 'openai'; // Make sure to install: npm install openai
@@ -50,7 +49,16 @@ const saveToFile = async (filePath: string, data: any) => {
     });
 };
 
-
+/**
+ * @api {get} /api/sync-submitted-report Synchronize Submitted Reports
+ * @apiName SyncSubmittedReports
+ * @apiGroup Reports
+ * @apiDescription Fetches accident reports from the source database and synchronizes them to the local database.
+ * Creates a new table if it doesn't exist and avoids duplicate entries.
+ * 
+ * @apiSuccess {Object[]} reports Array of synchronized accident reports
+ * @apiError {String} message Error message
+ */
 app.get('/api/sync-submitted-report',async (_req: Request, res: Response) => {
     try {
         const query = `
@@ -141,7 +149,24 @@ app.get('/api/sync-submitted-report',async (_req: Request, res: Response) => {
     }
     
 });
-app.get('/extract-criteria', async (req: Request, res: Response) => {
+
+/**
+ * @api {get} /api/extract-criteria Extract Approval Criteria
+ * @apiName ExtractCriteria
+ * @apiGroup Criteria
+ * @apiDescription Analyzes accident reports to extract approval criteria using AI.
+ * Saves the extracted criteria with version information.
+ * 
+ * @apiParam {String} [description] Optional description for the criteria version
+ * 
+ * @apiSuccess {Object} criteria The extracted criteria rules
+ * @apiSuccess {Number} version Version number of the saved criteria
+ * @apiSuccess {Date} createdAt Creation timestamp
+ * @apiSuccess {Boolean} isActive Whether this is the active criteria version
+ * 
+ * @apiError {String} message Error message
+ */
+app.get('/api/extract-criteria', async (req: Request, res: Response) => {
     try {
         const query = `
             SELECT data->'driverRCFDetails' AS RCF_Details, 
@@ -162,13 +187,6 @@ app.get('/extract-criteria', async (req: Request, res: Response) => {
         const description = req.query.description as string || `Criteria extracted on ${new Date().toISOString()}`;
         const savedVersion = await criteriaVersionService.saveCriteriaVersion(criteria, description);
 
-        // Optional: also save to file for backup
-        // await saveToFile("./data/extracted-criteria.json", { 
-        //     criteria,
-        //     version: savedVersion.version,
-        //     createdAt: savedVersion.createdAt
-        // });
-
         res.status(200).send({
             criteria,
             version: savedVersion.version,
@@ -181,6 +199,22 @@ app.get('/extract-criteria', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * @api {post} /api/criteria Save Criteria
+ * @apiName SaveCriteria
+ * @apiGroup Criteria
+ * @apiDescription Saves manually created or updated criteria with versioning.
+ * 
+ * @apiParam {Object} criteria The criteria rules to save
+ * @apiParam {String} [description] Optional description for the criteria version
+ * 
+ * @apiSuccess {Object} criteria The saved criteria
+ * @apiSuccess {Number} version Version number
+ * @apiSuccess {Date} createdAt Creation timestamp
+ * @apiSuccess {Boolean} isActive Whether this is the active criteria version
+ * 
+ * @apiError {Object} error Error details
+ */
 app.post('/api/criteria', async (req: Request, res: Response) => {
     try {
         console.log('Received criteria:', req.body?.criteria);
@@ -201,7 +235,21 @@ app.post('/api/criteria', async (req: Request, res: Response) => {
         });
     }
 });
-// Add new API endpoints to manage criteria versions
+
+/**
+ * @api {get} /api/criteria/active Get Active Criteria
+ * @apiName GetActiveCriteria
+ * @apiGroup Criteria
+ * @apiDescription Retrieves the currently active criteria version used for evaluating reports.
+ * 
+ * @apiSuccess {Object} criteria The active criteria rules
+ * @apiSuccess {Number} version Version number
+ * @apiSuccess {Date} createdAt Creation timestamp
+ * @apiSuccess {Boolean} isActive Always true for this endpoint
+ * 
+ * @apiError {String} message Error message when no active criteria exists
+ * @apiError {Object} error Error details
+ */
 app.get('/api/criteria/active', async (_req: Request, res: Response) => {
     try {
         const activeCriteria = await criteriaVersionService.getActiveCriteria();
@@ -220,6 +268,15 @@ app.get('/api/criteria/active', async (_req: Request, res: Response) => {
     }
 });
 
+/**
+ * @api {get} /api/criteria/versions Get All Criteria Versions
+ * @apiName GetAllCriteriaVersions
+ * @apiGroup Criteria
+ * @apiDescription Retrieves all saved criteria versions with their metadata.
+ * 
+ * @apiSuccess {Object[]} versions Array of all criteria versions with metadata
+ * @apiError {Object} error Error details
+ */
 app.get('/api/criteria/versions', async (_req: Request, res: Response) => {
     try {
         const versions = await criteriaVersionService.getAllVersions();
@@ -234,52 +291,91 @@ app.get('/api/criteria/versions', async (_req: Request, res: Response) => {
     }
 });
 
-// app.get('/api/criteria/versions/:version', async (req: Request, res: Response) => {
-//     try {
-//         const version = parseInt(req.params.version);
-//         if (isNaN(version)) {
-//             return res.status(400).json({ message: 'Invalid version number' });
-//         }
+/**
+ * @api {get} /api/criteria/versions/:version Get Criteria by Version
+ * @apiName GetCriteriaByVersion
+ * @apiGroup Criteria
+ * @apiDescription Retrieves a specific criteria version by its version number.
+ * 
+ * @apiParam {Number} version The version number to retrieve
+ * 
+ * @apiSuccess {Object} criteria The criteria rules for the requested version
+ * @apiSuccess {Number} version Version number
+ * @apiSuccess {Date} createdAt Creation timestamp
+ * @apiSuccess {Boolean} isActive Whether this is the active criteria version
+ * 
+ * @apiError {String} message Error message if version is invalid or not found
+ * @apiError {Object} error Error details
+ */
+app.get('/api/criteria/versions/:version', async (req: Request, res: Response) => {
+    try {
+        const version = parseInt(req.params.version);
+        if (isNaN(version)) {
+             res.status(400).json({ message: 'Invalid version number' });
+             return;
+        }
         
-//         const criteriaVersion = await criteriaVersionService.getCriteriaByVersion(version);
-//         if (criteriaVersion) {
-//             res.status(200).json(criteriaVersion);
-//         } else {
-//             res.status(404).json({ message: 'Version not found' });
-//         }
-//     } catch (error) {
-//         console.error('Error fetching criteria version:', error);
-//         res.status(500).json({
-//             status: 'error',
-//             message: 'Internal Server Error',
-//             error: (error as Error).message
-//         });
-//     }
-// });
+        const criteriaVersion = await criteriaVersionService.getCriteriaByVersion(version);
+        if (criteriaVersion) {
+            res.status(200).json(criteriaVersion);
+        } else {
+            res.status(404).json({ message: 'Version not found' });
+        }
+    } catch (error) {
+        console.error('Error fetching criteria version:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+            error: (error as Error).message
+        });
+    }
+});
 
-// app.post('/api/criteria/versions/:version/activate', async (req: Request, res: Response) => {
-//     try {
-//         const version = parseInt(req.params.version);
-//         if (isNaN(version)) {
-//             return res.status(400).json({ message: 'Invalid version number' });
-//         }
+/**
+ * @api {post} /api/criteria/versions/:version/activate Activate Criteria Version
+ * @apiName ActivateCriteriaVersion
+ * @apiGroup Criteria
+ * @apiDescription Sets a specific criteria version as active for report evaluation.
+ * 
+ * @apiParam {Number} version The version number to set as active
+ * 
+ * @apiSuccess {String} message Success message
+ * @apiError {String} message Error message if version is invalid or not found
+ * @apiError {Object} error Error details
+ */
+app.post('/api/criteria/versions/:version/activate', async (req: Request, res: Response) => {
+    try {
+        const version = parseInt(req.params.version);
+        if (isNaN(version)) {
+             res.status(400).json({ message: 'Invalid version number' });
+             return;
+        }
         
-//         const success = await criteriaVersionService.setActiveVersion(version);
-//         if (success) {
-//             res.status(200).json({ message: `Version ${version} set as active` });
-//         } else {
-//             res.status(404).json({ message: 'Version not found' });
-//         }
-//     } catch (error) {
-//         console.error('Error activating criteria version:', error);
-//         res.status(500).json({
-//             status: 'error',
-//             message: 'Internal Server Error',
-//             error: (error as Error).message
-//         });
-//     }
-// });
+        const success = await criteriaVersionService.setActiveVersion(version);
+        if (success) {
+            res.status(200).json({ message: `Version ${version} set as active` });
+        } else {
+            res.status(404).json({ message: 'Version not found' });
+        }
+    } catch (error) {
+        console.error('Error activating criteria version:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+            error: (error as Error).message
+        });
+    }
+});
 
+/**
+ * @api {get} /api/last-approved Get Last Approved Report
+ * @apiName GetLastApprovedReport
+ * @apiGroup Reports
+ * @apiDescription Retrieves the most recently approved accident report.
+ * 
+ * @apiSuccess {Object} report The complete report data
+ * @apiError {Object} error Error details
+ */
 app.get('/api/last-approved', async (_req: Request, res: Response) => {
     try {
         const query = `
@@ -305,6 +401,15 @@ app.get('/api/last-approved', async (_req: Request, res: Response) => {
     }
 });
 
+/**
+ * @api {get} /api/last-rejected Get Last Rejected Report
+ * @apiName GetLastRejectedReport
+ * @apiGroup Reports
+ * @apiDescription Retrieves the most recently rejected accident report.
+ * 
+ * @apiSuccess {Object} report The complete report data
+ * @apiError {Object} error Error details
+ */
 app.get('/api/last-rejected', async (_req: Request, res: Response) => {
     try {
         const query = `
@@ -331,32 +436,232 @@ app.get('/api/last-rejected', async (_req: Request, res: Response) => {
     }
 });
 
-app.post('/users', async (req: Request, res: Response) => {
+/**
+ * @api {get} /api/accident-reports Get All Accident Reports
+ * @apiName GetAccidentReports
+ * @apiGroup Reports
+ * @apiDescription Retrieves a paginated list of accident reports with filtering options.
+ * 
+ * @apiParam {Number} [page=1] Page number for pagination
+ * @apiParam {Number} [limit=10] Number of records per page
+ * @apiParam {String} [search] Search term for filtering across multiple fields
+ * @apiParam {String} [status] Filter by approval status
+ * @apiParam {String} [predictionResult] Filter by AI prediction result
+ * @apiParam {String} [startDate] Filter reports on or after this date (YYYY-MM-DD)
+ * @apiParam {String} [endDate] Filter reports on or before this date (YYYY-MM-DD)
+ * @apiParam {String} [sortBy=report_date] Field to sort by (report_date, report_id, approval_status, prediction_result, predicted_on)
+ * @apiParam {String} [sortOrder=desc] Sort order (asc, desc)
+ * 
+ * @apiSuccess {Object[]} data Array of accident reports
+ * @apiSuccess {Object} pagination Pagination details including total count
+ * @apiSuccess {Object} filters Applied filter parameters
+ * 
+ * @apiError {Object} error Error details
+ */
+app.get('/api/accident-reports', async (req: Request, res: Response) => {
     try {
-      const newUser = await userService.createUser(req.body);
-      res.status(201).json(newUser);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const offset = (page - 1) * limit;
+        
+        // Search parameters
+        const searchTerm = req.query.search as string;
+        const status = req.query.status as string;
+        const predictionResult = req.query.predictionResult as string;
+        const startDate = req.query.startDate as string;
+        const endDate = req.query.endDate as string;
+        const sortBy = req.query.sortBy as string || 'report_date';
+        const sortOrder = (req.query.sortOrder as string || 'desc').toUpperCase();
+        
+        // Base query parts
+        let whereClause = '';
+        const queryParams: any[] = [];
+        let paramCount = 1;
+        
+        // Build search filters
+        const conditions = [];
+        
+        if (searchTerm) {
+            conditions.push(`(
+              report_id ILIKE $${paramCount} OR 
+              rcf_details::text ILIKE $${paramCount} OR
+              approval_status ILIKE $${paramCount} OR
+              prediction_result ILIKE $${paramCount} OR
+              logic_behind_prediction ILIKE $${paramCount} OR
+              to_char(report_date, 'YYYY-MM-DD') ILIKE $${paramCount} OR
+              to_char(predicted_on, 'YYYY-MM-DD') ILIKE $${paramCount}
+            )`);
+            queryParams.push(`%${searchTerm}%`);
+            paramCount++;
+        }
+        
+        if (status) {
+            conditions.push(`approval_status = $${paramCount}`);
+            queryParams.push(status);
+            paramCount++;
+        }
+        
+        if (predictionResult) {
+            conditions.push(`prediction_result = $${paramCount}`);
+            queryParams.push(predictionResult);
+            paramCount++;
+        }
+        
+        // Date range filtering
+        if (startDate) {
+            conditions.push(`report_date >= $${paramCount}::timestamp`);
+            queryParams.push(startDate);
+            paramCount++;
+        }
+        
+        if (endDate) {
+            conditions.push(`report_date <= $${paramCount}::timestamp`);
+            queryParams.push(endDate);
+            paramCount++;
+        }
+        
+        if (conditions.length > 0) {
+            whereClause = 'WHERE ' + conditions.join(' AND ');
+        }
+        
+        // Validate sort parameters to prevent SQL injection
+        const validSortColumns = ['report_date', 'report_id', 'approval_status', 'prediction_result', 'predicted_on'];
+        const validSortOrders = ['ASC', 'DESC'];
+        
+        const orderBy = validSortColumns.includes(sortBy) ? sortBy : 'report_date';
+        const orderDirection = validSortOrders.includes(sortOrder) ? sortOrder : 'DESC';
+        
+        // Get total count for pagination
+        const countQuery = `
+            SELECT COUNT(*) FROM reports.accident_reports
+            ${whereClause}
+        `;
+        const countResult = await dbManager.executeQuery('primary', countQuery, queryParams);
+        const totalCount = parseInt(countResult.rows[0].count);
+        
+        // Add pagination parameters
+        queryParams.push(limit);
+        queryParams.push(offset);
+        
+        // Get paginated data
+        const query = `
+            SELECT * FROM reports.accident_reports
+            ${whereClause}
+            ORDER BY ${orderBy} ${orderDirection}, report_date DESC, predicted_on DESC NULLS LAST
+            LIMIT $${paramCount++} OFFSET $${paramCount}
+        `;
+        const result = await dbManager.executeQuery('primary', query, queryParams);
+        
+        res.status(200).json({
+            data: result.rows,
+            pagination: {
+                total: totalCount,
+                page,
+                limit,
+                totalPages: Math.ceil(totalCount / limit)
+            },
+            filters: {
+                search: searchTerm || null,
+                status: status || null,
+                predictionResult: predictionResult || null,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                sortBy: orderBy,
+                sortOrder: orderDirection
+            }
+        });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to create user' });
+        console.error('Error fetching accident reports:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+            error: (error as Error).message
+        });
     }
-  });
+});
 
-app.get('/users/:id', async (req: Request, res: Response) => {
+/**
+ * @api {get} /api/accident-reports/:reportId Get Accident Report by ID
+ * @apiName GetAccidentReportById
+ * @apiGroup Reports
+ * @apiDescription Retrieves a specific accident report by its ID.
+ * 
+ * @apiParam {String} reportId Unique identifier of the report
+ * 
+ * @apiSuccess {Object} report The complete accident report data
+ * @apiError {String} message Error message if report is not found
+ * @apiError {Object} error Error details
+ */
+app.get('/api/accident-reports/:reportId', async (req: Request, res: Response) => {
     try {
-      const user = await userService.getUserById(Number(req.params.id));
-      if (user) {
-        res.status(200).json(user);
-      } else {
-        res.status(404).json({ error: 'User not found' });
-      }
+        const reportId = req.params.reportId;
+        if (!reportId) {
+             res.status(400).json({ message: 'Report ID is required' });
+             return;
+        }
+        const query = `
+            SELECT * FROM reports.accident_reports
+            WHERE report_id = $1
+        `;
+        const result = await dbManager.executeQuery('primary', query, [reportId]);
+        if (result.rows.length === 0) {
+             res.status(404).json({ message: 'Report not found' });
+             return;
+        }
+        const report = result.rows[0];
+        res.status(200).json({
+            success: true,
+            data: {
+            report: {
+                id: report.report_id,
+                reportedDate: report.report_date,
+                details: report.rcf_details,
+                originalStatus: report.approval_status,
+                predictionStatus: report.prediction_result,
+                predictionReason: report.logic_behind_prediction,
+                predictedAt: report.predicted_on
+                
+            }
+            },
+            metadata: {
+            retrievedAt: new Date(),
+            predictionTimestamp: report.predicted_on
+            }
+        });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to get user' });
+        console.error('Error fetching accident report:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+            error: (error as Error).message
+        });
     }
-  });
+});
 
-
-
-  app.post('/api/evaluate-report/:reportId', async (req: Request, res: Response) => {
+/**
+ * @api {post} /api/evaluate-report/:reportId Evaluate Report
+ * @apiName EvaluateReport
+ * @apiGroup Reports
+ * @apiDescription Evaluates an accident report using AI against the active criteria.
+ * Updates the report with the evaluation result.
+ * 
+ * @apiParam {String} reportId Unique identifier of the report to evaluate
+ * 
+ * @apiSuccess {String} status Success status
+ * @apiSuccess {String} reportId ID of the evaluated report
+ * @apiSuccess {Object} evaluation Evaluation results including prediction and reasoning
+ * @apiSuccess {Object} updatedReport The updated report with evaluation results
+ * 
+ * @apiError {String} status Error status
+ * @apiError {String} message Error message
+ * @apiError {String} error Error details
+ */
+app.post('/api/evaluate-report/:reportId', async (req: Request, res: Response) => {
     try {
+
+        // Start timing for performance metrics
+        const startTime = Date.now();
+    
         const reportId = req.params.reportId;
         if (!reportId) {
               res.status(400).json({ 
@@ -398,7 +703,8 @@ Analyze the report data against these specific criteria:
 
 ${JSON.stringify(activeCriteria?.criteria, null, 2)}
 
-Provide a detailed evaluation and conclude with a clear APPROVE or DISAPPROVE decision.`;
+Provide a detailed evaluation and conclude with a clear APPROVE or DISAPPROVE decision.
+wrap the final decision in **APPROVE** or **DISAPPROVE**`;
 
         const userMessage = `Here is the report data to evaluate:
 ${JSON.stringify(reportData, null, 2)}
@@ -419,9 +725,9 @@ Please analyze this report against each criterion and make your decision.`;
         
         // Extract the decision from the response
         let decision = "Undetermined";
-        if (response?.includes("APPROVE")) {
+        if (response?.includes("**APPROVE**")) {
             decision = "Approved";
-        } else if (response?.includes("DISAPPROVE")) {
+        } else if (response?.includes("**DISAPPROVE**")) {
             decision = "Disapproved";
         }
         
@@ -440,19 +746,47 @@ Please analyze this report against each criterion and make your decision.`;
             updateQuery, 
             [decision, response, reportId]
         );
+
+        const updatedReport = updateResult.rows[0];
+        const processingTime = ((Date.now() - startTime) / 1000).toFixed(2);
         
         // Return the evaluation result
-        res.status(200).json({
-            status: 'success',
-            reportId,
-            evaluation: {
+        // res.status(200).json({
+        //     status: 'success',
+        //     reportId,
+        //     evaluation: {
+        //         result: decision,
+        //         reasoning: response,
+        //         predictedOn: new Date(),
+        //         criteriaVersion: activeCriteria?.version
+        //     },
+        //     updatedReport: updateResult.rows[0]
+        // });
+         res.status(200).json({
+            success: true,
+            data: {
+              report: {
+                id: updatedReport.report_id,
+                status: updatedReport.prediction_result,
+                evaluatedAt: updatedReport.predicted_on,
+                criteriaVersion: activeCriteria?.version,
+                metadata: {
+                  reportDate: updatedReport.report_date,
+                  originalStatus: updatedReport.approval_status
+                }
+              },
+              evaluation: {
                 result: decision,
-                reasoning: response,
-                predictedOn: new Date(),
-                criteriaVersion: activeCriteria?.version
+                reasoning: {
+                  fullText: response
+                }
+              }
             },
-            updatedReport: updateResult.rows[0]
-        });
+            meta: {
+              processingTime: `${processingTime}s`,
+              modelUsed: "gpt-4o"
+            }
+          });
         
     } catch (error) {
         console.error('Error evaluating report:', error);
@@ -464,122 +798,9 @@ Please analyze this report against each criterion and make your decision.`;
     }
 });
 
-// Add an endpoint to evaluate all pending reports
-// app.post('/api/evaluate-all-pending', async (_req: Request, res: Response) => {
-//     try {
-//         // Get all reports with "Pending" status
-//         const pendingQuery = `
-//             SELECT report_id FROM reports.accident_reports
-//             WHERE prediction_result = 'Pending'
-//         `;
-        
-//         const pendingResult = await dbManager.executeQuery('primary', pendingQuery);
-//         const pendingReports = pendingResult.rows;
-        
-//         if (pendingReports.length === 0) {
-//             return res.status(200).json({
-//                 status: 'success',
-//                 message: 'No pending reports to evaluate'
-//             });
-//         }
-        
-//         // Process each report (consider using a queue for large numbers)
-//         const processedIds = [];
-//         const errors = [];
-        
-//         // Process sequentially to avoid rate limits
-//         for (const report of pendingReports) {
-//             try {
-//                 // Make internal request to evaluate endpoint
-//                 // Normally you'd use axios or fetch, but we'll call directly
-//                 const reportId = report.report_id;
-                
-//                 // Get report data from the database
-//                 const reportQuery = `
-//                     SELECT * FROM reports.accident_reports 
-//                     WHERE report_id = $1
-//                 `;
-//                 const reportResult = await dbManager.executeQuery('primary', reportQuery, [reportId]);
-//                 const reportData = reportResult.rows[0].rcf_details;
-                
-//                 // Get active criteria
-//                 const activeCriteria = await criteriaVersionService.getActiveCriteria();
-//                 if (!activeCriteria) {
-//                     throw new Error('No active criteria found');
-//                 }
-                
-//                 // Call OpenAI
-//                 const systemMessage = `You are an expert report evaluator responsible for reviewing accident reports.
-// Analyze the report data against these specific criteria:
 
-// ${JSON.stringify(activeCriteria.criteria, null, 2)}
 
-// Provide a detailed evaluation and conclude with a clear APPROVE or DISAPPROVE decision.`;
 
-//                 const userMessage = `Here is the report data to evaluate:
-// ${JSON.stringify(reportData, null, 2)}
-
-// Please analyze this report against each criterion and make your decision.`;
-
-//                 const completion = await openai.chat.completions.create({
-//                     model: "gpt-4-turbo",
-//                     messages: [
-//                         { role: "system", content: systemMessage },
-//                         { role: "user", content: userMessage }
-//                     ],
-//                     temperature: 0.1,
-//                     max_tokens: 2000
-//                 });
-                
-//                 const response = completion.choices[0].message.content;
-//                 let decision = "Undetermined";
-                
-//                 if (response?.includes("APPROVE")) {
-//                     decision = "Approved";
-//                 } else if (response?.includes("DISAPPROVE")) {
-//                     decision = "Disapproved";
-//                 }
-                
-//                 // Update the report
-//                 const updateQuery = `
-//                     UPDATE reports.accident_reports 
-//                     SET prediction_result = $1,
-//                         logic_behind_prediction = $2,
-//                         predicted_on = NOW()
-//                     WHERE report_id = $3
-//                 `;
-                
-//                 await dbManager.executeQuery('primary', updateQuery, [decision, response, reportId]);
-//                 processedIds.push(reportId);
-                
-//                 // Add a delay to avoid rate limiting
-//                 await new Promise(resolve => setTimeout(resolve, 1000));
-                
-//             } catch (reportError) {
-//                 console.error(`Error processing report ${report.report_id}:`, reportError);
-//                 errors.push({
-//                     reportId: report.report_id,
-//                     error: (reportError as Error).message
-//                 });
-//             }
-//         }
-        
-//         res.status(200).json({
-//             status: 'success',
-//             message: `Processed ${processedIds.length} of ${pendingReports.length} reports`,
-//             processedIds,
-//             errors: errors.length > 0 ? errors : undefined
-//         });
-        
-//     } catch (error) {
-//         console.error('Error evaluating pending reports:', error);
-//         res.status(500).json({
-//             status: 'error',
-//             message: 'Internal Server Error',
-//             error: (error as Error).message
-//         });
-//     }
-// });
 
 // Initialize the database connection when the app starts
 const server = app.listen(port, async () => {
