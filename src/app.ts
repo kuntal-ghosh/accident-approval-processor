@@ -16,7 +16,20 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3005;
 app.use(express.json());
-
+// Enable Cross-Origin Resource Sharing (CORS) for all routes
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+         res.status(200).end();
+         return;
+    }
+    
+    next();
+});
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     throw new Error("OPENAI_API_KEY not found in environment variables");
