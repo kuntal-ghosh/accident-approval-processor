@@ -1,0 +1,95 @@
+.criteria-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  color: black;
+  padding: 20px;
+}
+
+.criteria-header {
+  margin-bottom: 30px;
+  text-align: center;
+  position: relative;
+  width: 100%;
+}
+
+.back-button {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  text-decoration: none;
+  color: black;
+  padding: 8px 15px;
+  background-color: #f4f4f4;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.back-button:hover {
+  box-shadow: rgba(50, 50, 93, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.3) 0px 3px 7px -3px;
+}
+
+.criteria-content {
+  width: 80%;
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  border-radius: 5px;
+}
+
+.criteria-meta {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+}
+
+.criteria-details {
+  line-height: 1.6;
+}
+
+.criteria-details h3 {
+  margin-top: 30px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+.criteria-details h4 {
+  margin-top: 20px;
+  color: #444;
+}
+
+.numbered-item {
+  margin: 10px 0 10px 20px;
+  padding-left: 10px;
+}
+
+.criteria-details li {
+  margin: 5px 0 5px 40px;
+}
+
+.loading, .error {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  width: 80%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.error {
+  color: #d32f2f;
+  background-color: #ffebee;
+}
+
+/* Style for strong tags to match main page */
+.criteria-details strong {
+  color: #2980b9;
+}

@@ -101,3 +101,83 @@ tr:hover {
     border-radius: 4px;
     overflow-x: auto;
 }
+
+.prediction-modal {
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to bottom, #ffffff, #f7f7f7);
+  position: relative;
+  padding: 25px;
+}
+
+.logic-content {
+  margin: 20px 0;
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #3498db;
+  text-align: left;
+}
+
+.logic-content p {
+  margin-bottom: 12px;
+}
+
+.logic-content strong {
+  color: #2980b9;
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 24px;
+  color: #777;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.modal-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.modal-button:hover {
+  background-color: #2980b9;
+}
+
+.action-buttons {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.criteria-link {
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.criteria-link button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.criteria-link button:hover {
+  background-color: #45a049;
+}
