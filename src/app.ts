@@ -46,19 +46,45 @@ const app = express();
 const port = process.env.PORT || 3005;
 app.use(express.json());
 // Enable Cross-Origin Resource Sharing (CORS) for all routes
+// app.use((req, res, next) => {
+//     res.header('Access-Control-Allow-Origin', '*');
+//     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+//     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+//     // Handle preflight requests
+//     if (req.method === 'OPTIONS') {
+//          res.status(200).end();
+//          return;
+//     }
+    
+//     next();
+// });
+
+// Update your CORS middleware to be more permissive with ngrok
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    // Allow requests from ngrok domains
+    const allowedOrigins = ['http://localhost:3000', 'https://localhost:3000'];
+    const origin = req.headers.origin;
+    
+    if (origin && (allowedOrigins.includes(origin) || origin.includes('.ngrok.io') || origin.includes('.ngrok-free.app'))) {
+        res.header('Access-Control-Allow-Origin', origin);
+    } else {
+        res.header('Access-Control-Allow-Origin', '*');
+    }
+    
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
          res.status(200).end();
-         return;
+         return
     }
     
     next();
 });
+
+
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
     throw new Error("OPENAI_API_KEY not found in environment variables");
@@ -105,6 +131,8 @@ app.get('/api/sync-submitted-report',async (_req: Request, res: Response) => {
     try {
         const query = `
             SELECT uuid,
+            data as Full_Report,
+            data->'driverRCFAPPROVE',
             created,
             data->'driverRCFDetails' AS RCF_Details, 
             data->'driverRCFAPPROVE'->> 'APPROVE REPORT?' AS Approval_Status 
@@ -181,7 +209,16 @@ app.get('/api/sync-submitted-report',async (_req: Request, res: Response) => {
         }));
 
         console.log(`Processed ${formattedRecords.length} accident reports`);
-        res.status(200).send(formattedRecords);
+        // Return a properly structured response with success, data, and metadata fields
+        res.status(200).json({
+            success: true,
+            data: formattedRecords,
+            metadata: {
+            timestamp: new Date(),
+            count: formattedRecords.length,
+            synchronizedAt: new Date().toISOString()
+            }
+        });
         // dbManager.executeQuery('primary', query).then((result) => {
         //     res.status(200).send(result.rows);
         // });
@@ -817,6 +854,7 @@ app.post('/api/evaluate-report/:reportId', async (req: Request, res: Response) =
                 status: 'error', 
                 message: 'No active criteria found' 
             });
+            return;
         }
         
         // Prepare the prompt for OpenAI
@@ -855,21 +893,38 @@ Please analyze this report against each criterion and make your decision.`;
         
         // Update the report with the prediction
         const updateQuery = `
-            UPDATE reports.accident_reports 
-            SET prediction_result = $1,
-                logic_behind_prediction = $2,
-                predicted_on = NOW()
-            WHERE report_id = $3
-            RETURNING *
-        `;
+        UPDATE reports.accident_reports 
+        SET prediction_result = $1::VARCHAR(50),
+            logic_behind_prediction = $2::TEXT,
+            predicted_on = NOW(),
+            is_correct = (CASE 
+                            WHEN $1::VARCHAR(50) = 'Approved' AND approval_status = 'Approved' THEN TRUE
+                            WHEN $1::VARCHAR(50) = 'Disapproved' AND approval_status = 'Disapproved' THEN TRUE
+                            WHEN $1::VARCHAR(50) IN ('Approved', 'Disapproved') AND approval_status IN ('Approved', 'Disapproved') THEN FALSE
+                            ELSE NULL
+                          END),
+            criteria_version_id = $4,
+            prediction_accuracy = (CASE 
+                                    WHEN $1::VARCHAR(50) = 'Approved' AND approval_status = 'Approved' THEN 'True Positive'
+                                    WHEN $1::VARCHAR(50) = 'Disapproved' AND approval_status = 'Disapproved' THEN 'True Negative'
+                                    WHEN $1::VARCHAR(50) = 'Approved' AND approval_status = 'Disapproved' THEN 'False Positive'
+                                    WHEN $1::VARCHAR(50) = 'Disapproved' AND approval_status = 'Approved' THEN 'False Negative'
+                                    ELSE 'Undefined'
+                                  END)
+        WHERE report_id = $3
+        RETURNING *
+      `;
         
-        const updateResult = await dbManager.executeQuery(
-            'primary', 
-            updateQuery, 
-            [decision, response, reportId]
-        );
+const updateResult = await dbManager.executeQuery(
+    'primary', 
+    updateQuery, 
+    [decision, response, reportId, activeCriteria.id]
+  );
 
         const updatedReport = updateResult.rows[0];
+
+        // update the criteria version
+
         const processingTime = ((Date.now() - startTime) / 1000).toFixed(2);
         
         // Return the evaluation result
@@ -921,8 +976,290 @@ Please analyze this report against each criterion and make your decision.`;
 });
 
 
+/**
+ * @api {get} /api/prediction-accuracy Get Prediction Accuracy Metrics
+ * @apiName GetPredictionAccuracy
+ * @apiGroup Reports
+ * @apiDescription Calculates and returns accuracy metrics for AI predictions compared to original decisions.
+ * 
+ * @apiParam {String} [timeframe=all] Time period for analysis (week, month, all)
+ * 
+ * @apiSuccess {Object} metrics Accuracy metrics and statistics
+ * @apiError {Object} error Error details
+ */
+app.get('/api/prediction-accuracy', async (req: Request, res: Response) => {
+  try {
+    const timeframe = req.query.timeframe as string || 'all';
+    
+    // Build the date filter based on the timeframe
+    let dateFilter = '';
+    if (timeframe === 'week') {
+      dateFilter = 'AND predicted_on >= NOW() - INTERVAL \'7 days\'';
+    } else if (timeframe === 'month') {
+      dateFilter = 'AND predicted_on >= NOW() - INTERVAL \'30 days\'';
+    }
+    
+    // Calculate accuracy metrics
+    const query = `
+    WITH metrics AS (
+      SELECT 
+        COUNT(*) as total_predictions,
+        COUNT(CASE WHEN prediction_result = approval_status THEN 1 END) as correct_predictions,
+        COUNT(CASE WHEN prediction_result != approval_status THEN 1 END) as incorrect_predictions,
+        COUNT(CASE WHEN approval_status = 'Approved' AND prediction_result = 'Approved' THEN 1 END) as true_positives,
+        COUNT(CASE WHEN approval_status = 'Disapproved' AND prediction_result = 'Disapproved' THEN 1 END) as true_negatives,
+        COUNT(CASE WHEN approval_status = 'Disapproved' AND prediction_result = 'Approved' THEN 1 END) as false_positives,
+        COUNT(CASE WHEN approval_status = 'Approved' AND prediction_result = 'Disapproved' THEN 1 END) as false_negatives
+      FROM reports.accident_reports
+      WHERE prediction_result IS NOT NULL 
+        AND prediction_result NOT IN ('Pending', 'Undetermined')
+        AND approval_status IN ('Approved', 'Disapproved')
+        ${dateFilter}
+    ),
+    metrics_with_percentages AS (
+      SELECT
+        total_predictions,
+        correct_predictions,
+        incorrect_predictions,
+        true_positives,
+        true_negatives,
+        false_positives,
+        false_negatives,
+        CASE WHEN total_predictions > 0 THEN 
+          ROUND((correct_predictions::numeric / total_predictions) * 100, 2)
+        ELSE 0 END as accuracy_percentage,
+        CASE WHEN (true_positives + false_positives) > 0 THEN
+          ROUND((true_positives::numeric / (true_positives + false_positives)) * 100, 2)
+        ELSE 0 END as precision_percentage,
+        CASE WHEN (true_positives + false_negatives) > 0 THEN
+          ROUND((true_positives::numeric / (true_positives + false_negatives)) * 100, 2)
+        ELSE 0 END as recall_percentage
+      FROM metrics
+    )
+    SELECT
+      total_predictions,
+      correct_predictions,
+      incorrect_predictions,
+      accuracy_percentage,
+      true_positives,
+      true_negatives,
+      false_positives,
+      false_negatives,
+      precision_percentage,
+      recall_percentage,
+      CASE WHEN (precision_percentage + recall_percentage) > 0 THEN
+        ROUND((2 * precision_percentage * recall_percentage) / (precision_percentage + recall_percentage), 2)
+      ELSE 0 END as f1_score
+    FROM metrics_with_percentages;
+  `;
+    
+    const result = await dbManager.executeQuery('primary', query);
+    
+    // Get criteria version accuracy
+    const criteriaQuery = `
+      SELECT 
+        c.version,
+        COUNT(*) as total_predictions,
+        COUNT(CASE WHEN ar.prediction_result = ar.approval_status THEN 1 END) as correct_predictions,
+        CASE WHEN COUNT(*) > 0 THEN 
+          ROUND((COUNT(CASE WHEN ar.prediction_result = ar.approval_status THEN 1 END)::numeric / COUNT(*)) * 100, 2)
+        ELSE 0 END as accuracy_percentage
+      FROM reports.accident_reports ar
+      JOIN criteria.criteria_versions c ON ar.criteria_version_id = c.id
+      WHERE ar.prediction_result IS NOT NULL 
+        AND ar.prediction_result NOT IN ('Pending', 'Undetermined')
+        AND ar.approval_status IN ('Approved', 'Disapproved')
+        ${dateFilter}
+      GROUP BY c.version
+      ORDER BY c.version DESC;
+    `;
+    
+    const criteriaResult = await dbManager.executeQuery('primary', criteriaQuery);
+    
+    // Time-based accuracy trend
+    const trendQuery = `
+      SELECT 
+        date_trunc('day', predicted_on) as prediction_date,
+        COUNT(*) as total_predictions,
+        COUNT(CASE WHEN prediction_result = approval_status THEN 1 END) as correct_predictions,
+        CASE WHEN COUNT(*) > 0 THEN 
+          ROUND((COUNT(CASE WHEN prediction_result = approval_status THEN 1 END)::numeric / COUNT(*)) * 100, 2)
+        ELSE 0 END as accuracy_percentage
+      FROM reports.accident_reports
+      WHERE prediction_result IS NOT NULL 
+        AND prediction_result NOT IN ('Pending', 'Undetermined')
+        AND approval_status IN ('Approved', 'Disapproved')
+        ${timeframe === 'all' ? '' : dateFilter}
+      GROUP BY date_trunc('day', predicted_on)
+      ORDER BY prediction_date DESC
+      LIMIT 30;
+    `;
+    
+    const trendResult = await dbManager.executeQuery('primary', trendQuery);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        overall: result.rows[0],
+        byCriteria: criteriaResult.rows,
+        trend: trendResult.rows
+      },
+      metadata: {
+        timeframe,
+        calculatedAt: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error calculating prediction accuracy:', error);
+    res.status(500).json(createErrorResponse(
+      ErrorCode.INTERNAL_ERROR,
+      'Failed to calculate prediction accuracy',
+      (error as Error).message
+    ));
+  }
+});
 
 
+/**
+ * @api {get} /api/confusion-matrix Get Prediction Confusion Matrix
+ * @apiName GetConfusionMatrix
+ * @apiGroup Reports
+ * @apiDescription Returns data for a confusion matrix showing prediction accuracy.
+ * 
+ * @apiSuccess {Object} matrix Confusion matrix data for visualization
+ * @apiError {Object} error Error details
+ */
+app.get('/api/confusion-matrix', async (_req: Request, res: Response) => {
+    try {
+      const query = `
+        SELECT 
+          approval_status as actual,
+          prediction_result as predicted,
+          COUNT(*) as count
+        FROM reports.accident_reports
+        WHERE prediction_result IN ('Approved', 'Disapproved', 'Undetermined')
+        AND approval_status IN ('Approved', 'Disapproved')
+        GROUP BY approval_status, prediction_result
+        ORDER BY approval_status, prediction_result;
+      `;
+      
+      const result = await dbManager.executeQuery('primary', query);
+      
+      // Format the matrix for easier front-end consumption
+      const matrixData = {
+        labels: ['Approved', 'Disapproved', 'Undetermined'],
+        matrix: [
+          [0, 0, 0], // Approved => [TP, FN, Uncertain]
+          [0, 0, 0]  // Disapproved => [FP, TN, Uncertain]
+        ]
+      };
+      
+      result.rows.forEach(row => {
+        const actualIndex = row.actual === 'Approved' ? 0 : 1;
+        let predictedIndex;
+        
+        if (row.predicted === 'Approved') predictedIndex = 0;
+        else if (row.predicted === 'Disapproved') predictedIndex = 1;
+        else predictedIndex = 2;
+        
+        matrixData.matrix[actualIndex][predictedIndex] = parseInt(row.count);
+      });
+      
+      res.status(200).json({
+        success: true,
+        data: matrixData,
+        metadata: {
+          calculatedAt: new Date().toISOString()
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error generating confusion matrix:', error);
+      res.status(500).json(createErrorResponse(
+        ErrorCode.INTERNAL_ERROR,
+        'Failed to generate confusion matrix',
+        (error as Error).message
+      ));
+    }
+  });
+
+
+  /**
+ * @api {get} /api/dashboard-summary Get Dashboard Summary
+ * @apiName GetDashboardSummary
+ * @apiGroup Reports
+ * @apiDescription Retrieves summary statistics for the dashboard.
+ * 
+ * @apiSuccess {Object} summary Dashboard summary statistics
+ * @apiError {Object} error Error details
+ */
+app.get('/api/dashboard-summary', async (_req: Request, res: Response) => {
+    try {
+      const query = `
+        SELECT
+          COUNT(*) as total_reports,
+          COUNT(CASE WHEN prediction_result IN ('Approved','Disapproved') THEN 1 END) as predicted_reports,
+          COUNT(CASE WHEN prediction_result = 'Pending' THEN 1 END) as pending_reports,
+          COUNT(CASE WHEN prediction_result = 'Approved' THEN 1 END) as approved_reports,
+          COUNT(CASE WHEN prediction_result = 'Disapproved' THEN 1 END) as disapproved_reports,
+          COUNT(CASE WHEN prediction_result = 'Undetermined' THEN 1 END) as undetermined_reports,
+          COUNT(CASE WHEN is_correct = TRUE THEN 1 END) as correct_predictions,
+          COUNT(CASE WHEN is_correct = FALSE THEN 1 END) as incorrect_predictions,
+          CASE WHEN COUNT(CASE WHEN is_correct IS NOT NULL THEN 1 END) > 0 THEN
+            ROUND((COUNT(CASE WHEN is_correct = TRUE THEN 1 END)::numeric / 
+                  COUNT(CASE WHEN is_correct IS NOT NULL THEN 1 END)) * 100, 2)
+          ELSE 0 END as accuracy_percentage
+        FROM reports.accident_reports;
+      `;
+      
+      const result = await dbManager.executeQuery('primary', query);
+      
+      // Get latest evaluated reports
+      const latestReportsQuery = `
+        SELECT
+          report_id,
+          approval_status,
+          prediction_result,
+          predicted_on,
+          is_correct
+        FROM reports.accident_reports
+        WHERE prediction_result NOT IN ('Pending')
+        ORDER BY predicted_on DESC
+        LIMIT 5;
+      `;
+      
+      const latestReports = await dbManager.executeQuery('primary', latestReportsQuery);
+      
+      // Get criteria information
+      const criteriaQuery = `
+        SELECT * FROM criteria.criteria_versions
+        WHERE "isActive" = TRUE;
+      `;
+      
+      const criteriaResult = await dbManager.executeQuery('primary', criteriaQuery);
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          stats: result.rows[0],
+          latestReports: latestReports.rows,
+          activeCriteria: criteriaResult.rows[0] || null
+        },
+        metadata: {
+          retrievedAt: new Date().toISOString()
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error generating dashboard summary:', error);
+      res.status(500).json(createErrorResponse(
+        ErrorCode.INTERNAL_ERROR,
+        'Failed to generate dashboard summary',
+        (error as Error).message
+      ));
+    }
+  });
 
 // Initialize the database connection when the app starts
 const server = app.listen(port, async () => {

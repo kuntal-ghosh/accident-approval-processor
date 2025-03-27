@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - NODE_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DB_HOST=localhost
+      - DB_PORT=5432
+      - DB_USER=kuntal
+      - DB_PASSWORD=Karnob@711
+      - DB_NAME=primary_db
+      - PRIMARY_DB_HOST=localhost
+      - PRIMARY_DB_PORT=5432
+      - PRIMARY_DB_USER=kuntal
+      - PRIMARY_DB_PASSWORD=Karnob@711
+      - PRIMARY_DB_NAME=primary_db
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=accident_reports
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -21,12 +21,12 @@ export function transformAccidentReports(records: any[]): AccidentReport[] {
           }
         }
     // Parse approval_status if it's a string
-    let approvalStatus: "Approved" | "Not Approved" | "NIL" | "Pending";
+    let approvalStatus: "Approved" | "Disapproved" | "NIL" | "Pending";
      if (Array.isArray(approvalStatusArray) && approvalStatusArray.includes('Approve')) {
       approvalStatus = "Approved";
     }
     else if (Array.isArray(approvalStatusArray) && approvalStatusArray.includes('Not Approve')) {
-      approvalStatus = "Not Approved";
+      approvalStatus = "Disapproved";
     }
     else {
       approvalStatus = "NIL";

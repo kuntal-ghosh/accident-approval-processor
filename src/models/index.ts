@@ -40,7 +40,7 @@ export interface AccidentReport {
       "LOCATION NEAREST ESTABLISHMENT/LANDMARK (ESTIMATE HOW MANY METERS AWAY FROM CRASH) / অবস্থান নিকটবর্তী স্থাপনা/চিহ্নিত স্থান (দুর্ঘটনা স্থল হইতে আনুমানিক দূরত্ব)": string;
       [key: string]: any; // For any additional fields that might be present
     };
-    approval_status: "Approved" | "Not Approved"| "NIL" ;
+    approval_status: "Approved" | "Disapproved"| "NIL"| "Pending";
     hasLocationSketch: boolean;
     created: Date;
   }

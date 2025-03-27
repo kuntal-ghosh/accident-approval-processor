@@ -7,11 +7,17 @@ class DatabaseSingleton {
   
   static async getInstance(): Promise<DatabaseService> {
     if (!this.instance) {
-      this.instance = new DatabaseService(database);
-      await this.instance.connect();
-     const poolName= dbManager.getPool('primary');
-
-      console.log('Database connection established for pool:', poolName);
+      try {
+        this.instance = new DatabaseService(database);
+        await this.instance.connect();
+        const poolName = dbManager.getPool('primary');
+        
+        console.log('Database connection established for pool:', poolName);
+      } catch (error) {
+        console.error('Failed to establish database connection:', error);
+        this.instance = null;
+        throw new Error('Database connection failed: ' + (error instanceof Error ? error.message : String(error)));
+      }
     }
     return this.instance;
   }
