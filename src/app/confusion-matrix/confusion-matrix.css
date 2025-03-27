@@ -1,0 +1,263 @@
+.confusion-matrix-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.matrix-header h1 {
+  font-size: 28px;
+  color: #24292e;
+  margin: 0;
+}
+
+.matrix-nav .nav-button {
+  padding: 8px 16px;
+  background-color: #0366d6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.matrix-nav .nav-button:hover {
+  background-color: #0255b3;
+}
+
+.matrix-description {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 25px;
+  border-left: 4px solid #0366d6;
+}
+
+.matrix-loading,
+.matrix-error {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #586069;
+}
+
+.matrix-error {
+  color: #cb2431;
+}
+
+.matrix-visualization,
+.matrix-metrics,
+.matrix-interpretations {
+  margin-bottom: 40px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.matrix-visualization h2,
+.matrix-metrics h2,
+.matrix-interpretations h2 {
+  margin-top: 0;
+  font-size: 20px;
+  color: #24292e;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* Matrix Grid Visualization */
+.matrix-grid-container {
+  position: relative;
+  padding: 30px 40px;
+}
+
+.axis-label {
+  position: absolute;
+  font-weight: bold;
+  color: #586069;
+}
+
+.axis-label.vertical {
+  transform: rotate(-90deg);
+  left: 0;
+  top: 50%;
+}
+
+.axis-label.horizontal {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.matrix-grid {
+  display: flex;
+  flex-direction: column;
+  margin-left: 20px;
+}
+
+.matrix-row {
+  display: flex;
+  height: 60px;
+}
+
+.matrix-cell {
+  width: 80px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px solid #e1e4e8;
+  font-weight: 500;
+}
+
+.header-cell,
+.row-header {
+  background-color: #f6f8fa;
+  font-weight: bold;
+}
+
+.corner-cell {
+  background-color: transparent;
+  border: none;
+}
+
+.data-cell {
+  font-size: 18px;
+  transition: all 0.3s ease;
+}
+
+.data-cell:hover {
+  transform: scale(1.05);
+  z-index: 10;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cell-value {
+  z-index: 1;
+  color: #24292e;
+}
+
+.true-positive-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 10px;
+  background-color: #2ea44f;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* Metrics Section */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.metric-card {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 15px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.metric-card h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 18px;
+  color: #24292e;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 8px;
+}
+
+.metric-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.metric-label {
+  color: #586069;
+}
+
+.metric-value {
+  font-weight: 600;
+  color: #24292e;
+}
+
+/* Interpretation Section */
+.interpretation-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.interpretation-card {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 15px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.interpretation-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #24292e;
+}
+
+.interpretation-card p {
+  margin: 0;
+  color: #586069;
+  font-size: 14px;
+}
+
+.matrix-metadata {
+  text-align: right;
+  color: #6a737d;
+  font-size: 14px;
+  margin-top: 20px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .matrix-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .matrix-grid-container {
+    padding: 20px 10px;
+    overflow-x: auto;
+  }
+  
+  .matrix-cell {
+    width: 60px;
+    height: 40px;
+    font-size: 14px;
+  }
+  
+  .interpretation-cards,
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}

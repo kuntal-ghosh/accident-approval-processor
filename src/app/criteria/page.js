@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import "../page.css";
 import "./criteria.css";
-import { getApiUrl } from "@/config/api";
+import { getApiUrl } from "../../config/api";
 
 export default function Criteria() {
   const [criteria, setCriteria] = useState(null);

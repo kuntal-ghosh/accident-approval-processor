@@ -1,7 +1,7 @@
 // This file centralizes API configuration for the application
 
-// Use environment variable with fallback
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://11b9-202-181-7-69.ngrok-free.app';
+// Base API URL configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://f2aa-2404-1c40-39b-fbd8-51bd-21c4-7c8b-1696.ngrok-free.app';
 
 // Helper function to build API paths
 export const getApiUrl = (path) => {
