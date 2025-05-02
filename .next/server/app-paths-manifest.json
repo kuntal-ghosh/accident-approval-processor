@@ -1,6 +1,6 @@
 {
   "/dashboard/page": "app/dashboard/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/prediction-accuracy/page": "app/prediction-accuracy/page.js",
+  "/page": "app/page.js",
   "/reports/page": "app/reports/page.js"
 }

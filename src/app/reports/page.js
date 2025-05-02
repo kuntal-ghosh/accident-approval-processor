@@ -8,6 +8,8 @@ import "./reports.css";
 export default function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [syncingReports, setSyncingReports] = useState(false); // New state for sync operation
+  const [overlayLoading, setOverlayLoading] = useState(false); // New state for full page overlay
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -52,17 +54,19 @@ export default function Reports() {
 
   async function fetchNewReports() {
     try {
-      setLoading(true);
+      setSyncingReports(true);
+      setOverlayLoading(true); // Show the full page overlay
       const response = await fetch(getApiUrl(`/api/sync-submitted-report`));
       const data = await response.json();
       if (data.success) {
         console.log("Successfully fetched new reports");
-        setLoading(false);
         fetchReports();
       }
     } catch (error) {
-      setLoading(false);
       console.error("Error fetching reports:", error);
+    } finally {
+      setSyncingReports(false);
+      setOverlayLoading(false); // Hide the overlay when done
     }
   }
 
@@ -129,7 +133,20 @@ export default function Reports() {
       
       <div className="action-buttons">
         <button onClick={fetchReports} className="action-button">Refresh</button>
-        <button onClick={fetchNewReports} className="action-button">Fetch New Reports</button>
+        <button 
+          onClick={fetchNewReports} 
+          className="action-button" 
+          disabled={syncingReports}
+        >
+          {syncingReports ? (
+            <>
+              <span className="loader-spinner"></span>
+              Syncing...
+            </>
+          ) : (
+            "Fetch New Reports"
+          )}
+        </button>
         <Link href="/criteria">
           <button className="action-button">View Approval Criteria</button>
         </Link>
@@ -280,6 +297,14 @@ export default function Reports() {
             <pre>{JSON.stringify(selectedReport, null, 2)}</pre>
             <button className="modal-button" onClick={closeModal}>Close</button>
           </div>
+        </div>
+      )}
+      
+      {/* Full-page overlay loader */}
+      {overlayLoading && (
+        <div className="overlay-loader">
+          <div className="overlay-spinner"></div>
+          <div className="overlay-message">Processing, please wait...</div>
         </div>
       )}
     </div>
